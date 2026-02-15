@@ -23,10 +23,11 @@ A production-minded Retrieval-Augmented Generation (RAG) assistant for Vietnames
 - `data/indices/`: BM25 + dense indices (generated)
 - `data/eval/qa_eval.jsonl`: evaluation dataset
 - `src/`: application code (ingestion, retrieval, RAG, guardrails, API, UI, eval)
-- `scripts/`: operational scripts (`ingest_and_index`, `run_api`, `run_eval`, `verify_pipeline`)
+- `scripts/`: operational scripts (`ingest_and_index`, `run_api`, `run_eval`, `verify_pipeline`, `generate_eval_dataset`, `split_eval_dataset`, `holdout_error_report`)
 - `tests/`: unit/integration coverage
 - `MANUAL_TEST_CHECKLIST.md`: exact manual test requests and expected outputs
 - `IMPLEMENTATION_GUIDE.md`: phase-oriented implementation and verification guide
+- `SYSTEM_DIAGRAMS_AND_LEARNING_CURVE.md`: visual architecture diagrams + student learning path
 
 ## Setup
 
@@ -84,6 +85,50 @@ Output includes metrics for:
 - `bm25`
 - `dense`
 - `hybrid`
+
+Generate curated eval dataset (120 items):
+
+```bash
+PYTHONPATH=. python3 scripts/generate_eval_dataset.py --chunks data/processed/chunks.jsonl --output data/eval/qa_eval.jsonl --target 120
+```
+
+Current curated distribution:
+- `positive_single`: 78
+- `positive_multi`: 12
+- `negative`: 30
+
+Create deterministic train/holdout split:
+
+```bash
+PYTHONPATH=. python3 scripts/split_eval_dataset.py \
+  --input data/eval/qa_eval.jsonl \
+  --train-output data/eval/qa_eval_train.jsonl \
+  --holdout-output data/eval/qa_eval_holdout.jsonl \
+  --holdout-ratio 0.2 \
+  --seed 42
+```
+
+Evaluate train split:
+
+```bash
+PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/run_eval.py --config config/default.yaml --dataset data/eval/qa_eval_train.jsonl --top_k 5
+```
+
+Evaluate holdout split:
+
+```bash
+PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/run_eval.py --config config/default.yaml --dataset data/eval/qa_eval_holdout.jsonl --top_k 5
+```
+
+Generate holdout error analysis report:
+
+```bash
+PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/holdout_error_report.py \
+  --config config/default.yaml \
+  --dataset data/eval/qa_eval_holdout.jsonl \
+  --top_k 5 \
+  --sample_limit 5
+```
 
 ## Manual QA
 

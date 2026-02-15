@@ -1,0 +1,293 @@
+{
+  "info": {
+    "_postman_id": "5f8cf064-4d57-4fc5-9e0e-6f879f56f65f",
+    "name": "Vietnamese Internal Docs RAG - Manual Scenarios",
+    "description": "Postman collection for MANUAL_TEST_CHECKLIST scenarios (S01-S20). Use with local API at {{base_url}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "S01 - Exact keyword policy lookup",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Theo tài liệu 'engineering branching strategy public 2024-10-12', mục 'Chiến lược nhánh mã nguồn' quy định gì?\",\n  \"top_k\": 5,\n  \"access_level\": \"internal\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes citation engineering_branching_strategy_public_2024-10-12-0-ebb6a5a6"
+      }
+    },
+    {
+      "name": "S02 - Paraphrased policy lookup",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Trong vận hành kỹ thuật, tài liệu 'engineering branching strategy public 2024-10-12' yêu cầu gì ở mục 'Chiến lược nhánh mã nguồn'?\",\n  \"top_k\": 5,\n  \"access_level\": \"internal\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes citation engineering_branching_strategy_public_2024-10-12-0-ebb6a5a6"
+      }
+    },
+    {
+      "name": "S03 - Acronym-heavy query",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Theo tài liệu 'operations it helpdesk sla public 2024-09-25', mục 'SLA hỗ trợ IT' quy định gì?\",\n  \"top_k\": 5,\n  \"access_level\": \"public\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes citation operations_it_helpdesk_sla_public_2024-09-25-0-5d9e9188"
+      }
+    },
+    {
+      "name": "S04 - Multi-hop query across two sections",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Hãy tổng hợp yêu cầu chính ở mục 'Hoàn ứng và thanh toán chi phí' và 'Hồ sơ bắt buộc' trong tài liệu 'finance expense reimbursement internal 2024-12-20'.\",\n  \"top_k\": 5,\n  \"access_level\": \"restricted\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes both finance chunks 0 and 1"
+      }
+    },
+    {
+      "name": "S05 - Outdated policy ambiguity trap",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Chính sách nghỉ phép năm 2020 là gì?\",\n  \"top_k\": 5,\n  \"access_level\": \"internal\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: NOT_FOUND"
+      }
+    },
+    {
+      "name": "S06 - Unsupported question outside corpus",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Công ty quy định đồng phục bắt buộc vào thứ Hai như thế nào?\",\n  \"top_k\": 5,\n  \"access_level\": \"internal\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: NOT_FOUND"
+      }
+    },
+    {
+      "name": "S07 - Vague question requiring clarification",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Chính sách?\",\n  \"top_k\": 5,\n  \"access_level\": \"internal\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: NOT_FOUND with clarifying_question"
+      }
+    },
+    {
+      "name": "S08 - Contradictory query phrasing",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Nghỉ phép mỗi năm vừa 12 ngày vừa 20 ngày đúng không?\",\n  \"top_k\": 5,\n  \"access_level\": \"internal\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes hr_leave_policy_internal-0-c735e348"
+      }
+    },
+    {
+      "name": "S09 - Long multi-part query",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Hãy tổng hợp yêu cầu chính ở mục 'Thời hạn lưu trữ hồ sơ' và 'Lưu trữ và truy xuất' trong tài liệu 'legal document retention policy internal 2024-10-28'.\",\n  \"top_k\": 5,\n  \"access_level\": \"restricted\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes legal chunks 0 and 1"
+      }
+    },
+    {
+      "name": "S10 - Restricted query with low access",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Thông tin đăng nhập nhạy cảm cần xoay vòng bao lâu?\",\n  \"top_k\": 5,\n  \"access_level\": \"public\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: NOT_FOUND"
+      }
+    },
+    {
+      "name": "S11 - Restricted query with allowed access",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Thông tin đăng nhập nhạy cảm cần xoay vòng bao lâu?\",\n  \"top_k\": 5,\n  \"access_level\": \"restricted\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes security_access_restricted-0-1fa0a676"
+      }
+    },
+    {
+      "name": "S12 - Similar policy section disambiguation",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Theo tài liệu 'operations procurement policy internal 2025-01-08', mục 'Kiểm soát nhà cung cấp' quy định gì?\",\n  \"top_k\": 5,\n  \"access_level\": \"restricted\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes operations_procurement_policy_internal_2025-01-08-2-ca599ae7"
+      }
+    },
+    {
+      "name": "S13 - English-Vietnamese mixed query",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Policy annual leave trong tài liệu 'hr leave policy internal' là gì?\",\n  \"top_k\": 5,\n  \"access_level\": \"restricted\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes hr_leave_policy_internal-0-c735e348"
+      }
+    },
+    {
+      "name": "S14 - Typo-containing Vietnamese query",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Nhaan vien duoc nghi phepp bao nhieu ngay?\",\n  \"top_k\": 5,\n  \"access_level\": \"restricted\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: NOT_FOUND"
+      }
+    },
+    {
+      "name": "S15 - Duplicate chunk collision (after setup)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Theo tài liệu 'hr leave policy internal', mục 'Leave Policy' quy định gì?\",\n  \"top_k\": 5,\n  \"access_level\": \"restricted\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, deduped citation signatures"
+      }
+    },
+    {
+      "name": "S16 - Zero-result retrieval edge case",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"zzzzzzzzzzzzzzzz\",\n  \"top_k\": 5,\n  \"access_level\": \"internal\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/search",
+        "description": "Expected: hits == []"
+      }
+    },
+    {
+      "name": "S17 - High top_k search",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"Theo tài liệu 'engineering onboarding public', mục 'Code Review' quy định gì?\",\n  \"top_k\": 50,\n  \"access_level\": \"restricted\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/search",
+        "description": "Expected: 200, >=5 hits, contains engineering_onboarding_public-1-699e11c3"
+      }
+    },
+    {
+      "name": "S18 - Malformed API payload (validation)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"test\",\n  \"top_k\": 0\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: HTTP 422 with validation error on top_k"
+      }
+    },
+    {
+      "name": "S19 - LLM format-violation fallback (after setup)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Theo tài liệu 'engineering onboarding public', mục 'Code Review' quy định gì?\",\n  \"top_k\": 5,\n  \"access_level\": \"public\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Expected: ANSWERED, includes engineering_onboarding_public-1-699e11c3"
+      }
+    },
+    {
+      "name": "S20 - Repeated query consistency check",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Theo tài liệu 'engineering onboarding public', mục 'Code Review' quy định gì?\",\n  \"top_k\": 5,\n  \"access_level\": \"public\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/ask",
+        "description": "Run this request twice; expect stable status/confidence/first citation/answer"
+      }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" }
+  ]
+}
