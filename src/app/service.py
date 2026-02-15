@@ -106,5 +106,8 @@ class QAService:
                 "min_query_token_overlap": self.settings.min_query_token_overlap,
                 "min_citation_relevance": self.settings.min_citation_relevance,
                 "min_top_relevance": self.settings.min_top_relevance,
+                "min_yesno_relevance": self.settings.min_yesno_relevance,
+                "min_open_query_token_coverage": self.settings.min_open_query_token_coverage,
+                "top_doc_token_coverage_min": 0.5,
             }
         return answer

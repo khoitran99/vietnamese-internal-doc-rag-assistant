@@ -6,8 +6,13 @@ from src.common.schemas import AnswerPackage, RetrievalHit
 from src.config.settings import AppSettings
 from src.guardrails.policy import (
     build_clarifying_question,
+    content_token_coverage,
+    contains_yes_no_question,
     compute_confidence,
     filter_irrelevant_citations,
+    has_explicit_reference,
+    question_acronyms_supported,
+    question_numbers_supported,
     query_chunk_overlap_score,
     should_return_not_found,
 )
@@ -27,7 +32,14 @@ class RAGAnswerer:
     def answer(self, question: str, evidence_hits: List[RetrievalHit], debug: bool = False) -> AnswerPackage:
         prompt = build_prompt(question, evidence_hits)
         generation = self.llm.generate(question=question, prompt=prompt, hits=evidence_hits)
-        top_relevance = query_chunk_overlap_score(question, evidence_hits[0].chunk_ref.text) if evidence_hits else 0.0
+        has_reference = has_explicit_reference(question)
+        top_text_relevance = query_chunk_overlap_score(question, evidence_hits[0].chunk_ref.text) if evidence_hits else 0.0
+        top_meta_relevance = (
+            query_chunk_overlap_score(question, f"{evidence_hits[0].chunk_ref.title} {evidence_hits[0].chunk_ref.section_path}")
+            if evidence_hits
+            else 0.0
+        )
+        top_relevance = max(top_text_relevance, top_meta_relevance)
 
         citations, citation_coverage = filter_irrelevant_citations(
             question=question,
@@ -52,9 +64,54 @@ class RAGAnswerer:
             not_found = True
 
         answer_text = generation.answer
+        hit_map = {h.chunk_ref.chunk_id: h for h in evidence_hits}
+        selected_hits = [hit_map[c["chunk_id"]] for c in citations if c.get("chunk_id") in hit_map]
+
+        if contains_yes_no_question(question) and top_relevance < self.settings.min_yesno_relevance:
+            not_found = True
+        if contains_yes_no_question(question) and not has_reference and top_text_relevance < 0.75:
+            not_found = True
+        if not has_reference and top_relevance < max(self.settings.min_top_relevance, 0.18):
+            not_found = True
+
+        top_doc_support_count = 0
+        top_doc_texts: List[str] = []
+        if evidence_hits:
+            top_doc_id = evidence_hits[0].chunk_ref.doc_id
+            top_doc_support_count = sum(
+                1 for hit in evidence_hits[: max(5, self.settings.max_citations)] if hit.chunk_ref.doc_id == top_doc_id
+            )
+            top_doc_texts = [
+                f"{hit.chunk_ref.title} {hit.chunk_ref.section_path} {hit.chunk_ref.text}"
+                for hit in evidence_hits[: max(5, self.settings.max_citations)]
+                if hit.chunk_ref.doc_id == top_doc_id
+            ]
+        top_two_score_ratio = 0.0
+        if len(evidence_hits) >= 2 and evidence_hits[0].score > 0:
+            top_two_score_ratio = evidence_hits[1].score / evidence_hits[0].score
+
+        if (
+            not has_reference
+            and top_text_relevance <= 0.5
+            and top_doc_support_count < 2
+            and top_two_score_ratio < 0.95
+        ):
+            not_found = True
+
+        support_hits = selected_hits if selected_hits else evidence_hits[: self.settings.max_citations]
+        evidence_texts = [f"{h.chunk_ref.title} {h.chunk_ref.section_path} {h.chunk_ref.text}" for h in support_hits]
+        if not question_numbers_supported(question, evidence_texts):
+            not_found = True
+        if not question_acronyms_supported(question, evidence_texts):
+            not_found = True
+        open_query_token_coverage = content_token_coverage(question, evidence_texts, min_token_len=5)
+        if not has_reference and open_query_token_coverage < self.settings.min_open_query_token_coverage:
+            not_found = True
+        top_doc_token_coverage = content_token_coverage(question, top_doc_texts, min_token_len=4)
+        if not has_reference and top_doc_support_count >= 2 and top_doc_token_coverage < 0.5:
+            not_found = True
+
         if self.llm.backend == "heuristic":
-            hit_map = {h.chunk_ref.chunk_id: h for h in evidence_hits}
-            selected_hits = [hit_map[c["chunk_id"]] for c in citations if c.get("chunk_id") in hit_map]
             bullets: List[str] = []
             for hit in selected_hits:
                 sentence = hit.chunk_ref.text.split(".")[0].strip()
@@ -76,6 +133,12 @@ class RAGAnswerer:
                     "top_score": evidence_hits[0].score if evidence_hits else 0.0,
                     "citation_coverage": citation_coverage,
                     "top_relevance": top_relevance,
+                    "top_text_relevance": top_text_relevance,
+                    "top_meta_relevance": top_meta_relevance,
+                    "top_doc_support_count": top_doc_support_count,
+                    "top_two_score_ratio": top_two_score_ratio,
+                    "open_query_token_coverage": open_query_token_coverage,
+                    "top_doc_token_coverage": top_doc_token_coverage,
                 }
                 if debug
                 else {},
@@ -91,6 +154,12 @@ class RAGAnswerer:
                 "top_score": evidence_hits[0].score if evidence_hits else 0.0,
                 "citation_coverage": citation_coverage,
                 "top_relevance": top_relevance,
+                "top_text_relevance": top_text_relevance,
+                "top_meta_relevance": top_meta_relevance,
+                "top_doc_support_count": top_doc_support_count,
+                "top_two_score_ratio": top_two_score_ratio,
+                "open_query_token_coverage": open_query_token_coverage,
+                "top_doc_token_coverage": top_doc_token_coverage,
             }
             if debug
             else {},
