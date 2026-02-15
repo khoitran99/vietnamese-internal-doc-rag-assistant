@@ -26,6 +26,7 @@ class AppSettings:
     min_query_token_overlap: float
     retrieval_candidate_size: int
     recency_weight: float
+    metadata_boost_weight: float
     embedding_model_name: str
     llm_backend: str
     llm_model_name: str
@@ -33,6 +34,8 @@ class AppSettings:
     min_citation_coverage: float
     min_citation_relevance: float
     min_top_relevance: float
+    min_yesno_relevance: float
+    min_open_query_token_coverage: float
     max_citations: int
 
 
@@ -83,16 +86,19 @@ def load_settings(config_path: str | Path) -> AppSettings:
         dense_weight=float(_get(cfg, "retrieval.dense_weight")),
         min_score_threshold=float(_get(cfg, "retrieval.min_score_threshold")),
         min_relative_score=float(_get_optional(cfg, "retrieval.min_relative_score", 0.45)),
-        min_query_token_overlap=float(_get_optional(cfg, "retrieval.min_query_token_overlap", 0.12)),
+        min_query_token_overlap=float(_get_optional(cfg, "retrieval.min_query_token_overlap", 0.05)),
         retrieval_candidate_size=int(_get_optional(cfg, "retrieval.candidate_size", 20)),
         recency_weight=float(_get_optional(cfg, "retrieval.recency_weight", 0.08)),
+        metadata_boost_weight=float(_get_optional(cfg, "retrieval.metadata_boost_weight", 0.18)),
         embedding_model_name=str(_get(cfg, "models.embedding_model_name")),
         llm_backend=str(_get(cfg, "models.llm_backend")),
         llm_model_name=str(_get(cfg, "models.llm_model_name")),
         max_new_tokens=int(_get(cfg, "models.max_new_tokens")),
         min_citation_coverage=float(_get(cfg, "guardrails.min_citation_coverage")),
-        min_citation_relevance=float(_get_optional(cfg, "guardrails.min_citation_relevance", 0.2)),
-        min_top_relevance=float(_get_optional(cfg, "guardrails.min_top_relevance", 0.1)),
+        min_citation_relevance=float(_get_optional(cfg, "guardrails.min_citation_relevance", 0.08)),
+        min_top_relevance=float(_get_optional(cfg, "guardrails.min_top_relevance", 0.08)),
+        min_yesno_relevance=float(_get_optional(cfg, "guardrails.min_yesno_relevance", 0.6)),
+        min_open_query_token_coverage=float(_get_optional(cfg, "guardrails.min_open_query_token_coverage", 0.34)),
         max_citations=int(_get_optional(cfg, "guardrails.max_citations", 3)),
     )
 

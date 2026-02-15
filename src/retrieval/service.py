@@ -6,7 +6,7 @@ from typing import List
 
 from src.common.schemas import RetrievalHit
 from src.config.settings import AppSettings
-from src.guardrails.policy import filter_retrieval_hits
+from src.guardrails.policy import extract_query_targets, filter_retrieval_hits, max_phrase_match_score, tokenize_for_overlap
 from src.retrieval.bm25_retriever import BM25Retriever
 from src.retrieval.dense_retriever import DenseRetriever
 from src.retrieval.hybrid import fuse_hits
@@ -51,6 +51,37 @@ class RetrievalService:
             hit.score = hit.fused_score
         return sorted(hits, key=lambda h: h.fused_score, reverse=True)
 
+    def _apply_metadata_boost(self, query: str, hits: List[RetrievalHit]) -> List[RetrievalHit]:
+        if not hits or self.settings.metadata_boost_weight <= 0:
+            return hits
+
+        q_tokens = set(tokenize_for_overlap(query))
+        if not q_tokens:
+            return hits
+
+        targets = extract_query_targets(query)
+        for hit in hits:
+            metadata_text = f"{hit.chunk_ref.title} {hit.chunk_ref.section_path}"
+            meta_tokens = set(tokenize_for_overlap(metadata_text))
+            if not meta_tokens:
+                continue
+            section_tokens = set(tokenize_for_overlap(hit.chunk_ref.section_path))
+            overlap = len(q_tokens.intersection(meta_tokens)) / max(1, len(q_tokens))
+            section_overlap_count = len(q_tokens.intersection(section_tokens))
+            doc_match = max_phrase_match_score(targets.doc_titles, hit.chunk_ref.title)
+            section_match = max_phrase_match_score(targets.sections, hit.chunk_ref.section_path)
+
+            boost = self.settings.metadata_boost_weight * overlap
+            boost += self.settings.metadata_boost_weight * 0.9 * doc_match
+            boost += self.settings.metadata_boost_weight * 1.1 * section_match
+            boost += min(0.24, 0.08 * section_overlap_count)
+            if targets.doc_titles and doc_match < 0.2:
+                boost -= self.settings.metadata_boost_weight * 0.15
+
+            hit.fused_score = hit.fused_score + boost
+            hit.score = hit.fused_score
+        return sorted(hits, key=lambda h: h.fused_score, reverse=True)
+
     def _compute_query_weights(self, query: str) -> tuple[float, float]:
         lexical = self.settings.lexical_weight
         dense = self.settings.dense_weight
@@ -91,9 +122,10 @@ class RetrievalService:
             dense_weight=dense_weight,
         )
         recency_boosted = self._apply_recency_boost(fused_candidates)
+        metadata_boosted = self._apply_metadata_boost(query, recency_boosted)
         fused = filter_retrieval_hits(
             query=query,
-            hits=recency_boosted,
+            hits=metadata_boosted,
             min_score_threshold=self.settings.min_score_threshold,
             min_relative_score=self.settings.min_relative_score,
             min_query_token_overlap=self.settings.min_query_token_overlap,

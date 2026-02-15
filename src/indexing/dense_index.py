@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import hashlib
+import re
 from pathlib import Path
 from typing import List
 
@@ -13,6 +14,13 @@ from src.common.schemas import DocumentChunk, RetrievalHit
 
 
 class EmbeddingBackend:
+    _TOKEN_RE = re.compile(r"[0-9A-Za-zÀ-ỹà-ỹ_]+", flags=re.UNICODE)
+    _TOKEN_ALIASES = {
+        "branch": "nhanh",
+        "team": "nhom",
+        "thuat": "engineering",
+    }
+
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
         self._st_model = None
@@ -31,7 +39,8 @@ class EmbeddingBackend:
     def _hash_embed(texts: List[str], dim: int = 384) -> np.ndarray:
         arr = np.zeros((len(texts), dim), dtype=np.float32)
         for i, text in enumerate(texts):
-            for tok in text.lower().split():
+            for tok in EmbeddingBackend._TOKEN_RE.findall(text.lower()):
+                tok = EmbeddingBackend._TOKEN_ALIASES.get(tok, tok)
                 digest = hashlib.md5(tok.encode("utf-8")).digest()
                 idx = int.from_bytes(digest[:8], byteorder="little", signed=False) % dim
                 arr[i, idx] += 1.0
@@ -72,8 +81,12 @@ class DenseIndex:
 
     @classmethod
     def build(cls, chunks: List[DocumentChunk], backend: EmbeddingBackend) -> "DenseIndex":
-        embeddings = backend.encode([c.text for c in chunks])
+        embeddings = backend.encode([cls._index_text(c) for c in chunks])
         return cls(chunks=chunks, embeddings=embeddings, embedding_model_name=backend.model_name)
+
+    @staticmethod
+    def _index_text(chunk: DocumentChunk) -> str:
+        return f"{chunk.title} {chunk.section_path} {chunk.text}"
 
     def search(
         self,

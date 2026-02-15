@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pickle
+import re
 from pathlib import Path
 from typing import List
 
@@ -10,9 +11,16 @@ from src.common.schemas import DocumentChunk, RetrievalHit
 
 
 class BM25Index:
+    _TOKEN_RE = re.compile(r"[0-9A-Za-zÀ-ỹà-ỹ_]+", flags=re.UNICODE)
+    _TOKEN_ALIASES = {
+        "branch": "nhanh",
+        "team": "nhom",
+        "thuat": "engineering",
+    }
+
     def __init__(self, chunks: List[DocumentChunk]) -> None:
         self.chunks = chunks
-        self.corpus_tokens = [chunk.text.lower().split() for chunk in chunks]
+        self.corpus_tokens = [self._tokenize(self._index_text(chunk)) for chunk in chunks]
         self._bm25 = None
         self._use_rank_bm25 = False
 
@@ -24,6 +32,15 @@ class BM25Index:
         except Exception:
             self._bm25 = None
             self._idf = self._compute_idf(self.corpus_tokens)
+
+    @staticmethod
+    def _index_text(chunk: DocumentChunk) -> str:
+        return f"{chunk.title} {chunk.section_path} {chunk.text}"
+
+    @classmethod
+    def _tokenize(cls, text: str) -> List[str]:
+        tokens = cls._TOKEN_RE.findall(text.lower())
+        return [cls._TOKEN_ALIASES.get(tok, tok) for tok in tokens]
 
     @staticmethod
     def _compute_idf(corpus_tokens: List[List[str]]) -> dict:
@@ -55,7 +72,7 @@ class BM25Index:
         department_filter: str | None = None,
         access_level: str | None = None,
     ) -> List[RetrievalHit]:
-        query_tokens = query.lower().split()
+        query_tokens = self._tokenize(query)
         if self._use_rank_bm25 and self._bm25 is not None:
             scores = np.array(self._bm25.get_scores(query_tokens), dtype=np.float32)
         else:
