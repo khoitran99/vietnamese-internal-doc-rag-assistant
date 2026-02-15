@@ -13,6 +13,9 @@ class EvalItem:
     question: str
     gold_chunk_ids: List[str]
     reference_answer: Optional[str] = None
+    difficulty: str = "easy"
+    query_type: str = "positive"
+    domain: Optional[str] = None
 
 
 def load_eval_dataset(path: Path) -> List[EvalItem]:
@@ -25,6 +28,9 @@ def load_eval_dataset(path: Path) -> List[EvalItem]:
                 question=str(row["question"]),
                 gold_chunk_ids=list(row.get("gold_chunk_ids", [])),
                 reference_answer=row.get("reference_answer"),
+                difficulty=str(row.get("difficulty", "easy")),
+                query_type=str(row.get("query_type", "positive" if row.get("gold_chunk_ids") else "negative")),
+                domain=row.get("domain"),
             )
         )
     return items
