@@ -1,0 +1,37 @@
+app:
+  version: "0.1.0"
+
+paths:
+  raw_data_dir: "data/raw"
+  chunk_output_path: "data/processed/chunks.jsonl"
+  bm25_index_path: "data/indices/bm25.pkl"
+  dense_index_dir: "data/indices/dense"
+  eval_dataset_path: "data/eval/qa_eval.jsonl"
+
+chunking:
+  chunk_size_tokens: 350
+  overlap_tokens: 80
+
+retrieval:
+  default_top_k: 5
+  fusion_method: "weighted"
+  lexical_weight: 0.62
+  dense_weight: 0.38
+  min_score_threshold: 0.28
+  min_relative_score: 0.60
+  min_query_token_overlap: 0.12
+  candidate_size: 24
+  recency_weight: 0.08
+
+models:
+  embedding_model_name: "hash://384"
+  llm_backend: "heuristic"
+  llm_model_name: "Qwen/Qwen2.5-3B-Instruct"
+  max_new_tokens: 256
+
+guardrails:
+  min_score_threshold: 0.28
+  min_citation_coverage: 1.0
+  min_citation_relevance: 0.25
+  min_top_relevance: 0.40
+  max_citations: 3

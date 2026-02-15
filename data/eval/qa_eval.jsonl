@@ -1,0 +1,3 @@
+{"id":"q1","question":"Nhân viên được nghỉ phép bao nhiêu ngày mỗi năm?","gold_chunk_ids":["hr_leave_policy_internal-0-c735e348"],"reference_answer":"12 ngày mỗi năm"}
+{"id":"q2","question":"PR cần bao nhiêu reviewer trước khi merge?","gold_chunk_ids":["engineering_onboarding_public-1-699e11c3"],"reference_answer":"ít nhất 1 reviewer"}
+{"id":"q3","question":"Thông tin đăng nhập nhạy cảm cần xoay vòng bao lâu?","gold_chunk_ids":["security_access_restricted-0-1fa0a676"],"reference_answer":"90 ngày"}
