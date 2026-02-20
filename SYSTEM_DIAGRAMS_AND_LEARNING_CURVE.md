@@ -2,6 +2,12 @@
 
 This document explains the current Vietnamese Internal Docs RAG Assistant with visual diagrams and a student-friendly learning path.
 
+Current default runtime profile:
+
+- `llm_backend = heuristic`
+- `embedding_model_name = hash://384`
+- Optional `transformers` backend exists but is not the default.
+
 ## 1) End-to-End Architecture
 
 ```mermaid
@@ -9,7 +15,7 @@ flowchart LR
     A[data/raw/*\nPDF DOCX MD HTML] --> B[Ingestion Pipeline\nparse normalize chunk metadata]
     B --> C[data/processed/chunks.jsonl]
     C --> D1[BM25 Index]
-    C --> D2[Dense/FAISS-like Index]
+    C --> D2[Dense Index\nhash embedding default,\nFAISS optional]
     D1 --> E[Retrieval Service\nBM25 + Dense + Hybrid Fusion]
     D2 --> E
     E --> F[RAG Answerer\nPrompt + Local LLM Wrapper]
@@ -31,7 +37,7 @@ flowchart TD
     F --> G[Build BM25 Index]
     F --> H[Build Dense Index]
     G --> I[data/indices/bm25.pkl]
-    H --> J[data/indices/dense/*]
+    H --> J[data/indices/dense/*\nembeddings.npy + chunks.jsonl + meta.json]
 ```
 
 ## 3) Query Lifecycle (/ask)
@@ -84,7 +90,7 @@ flowchart TD
     C --> D[Compute confidence]
     D --> E{Pass checks?\nscore citation coverage relevance}
     E -- No --> NF
-    E -- Yes --> F{Special checks}\n
+    E -- Yes --> F{Special checks}
     F --> G[yes/no relevance]
     F --> H[number support]
     F --> I[acronym support]
@@ -157,7 +163,7 @@ Use this as a practical learning roadmap.
 
 - Goal: Understand how `/ask` builds answer packages.
 - Learn:
-  - Prompt + local model wrapper.
+  - Prompt + local model wrapper (`heuristic` default).
   - Citation selection from retrieved hits.
   - Why answer text may include multiple bullets.
 - Practice:
@@ -203,4 +209,3 @@ Use this as a practical learning roadmap.
 3. Execute Postman scenarios `S01-S11`.
 4. Run eval + error report scripts.
 5. Read `TUNING_NOTES.md` to connect changes to metrics.
-

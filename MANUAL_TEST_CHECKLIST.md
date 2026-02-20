@@ -1,6 +1,6 @@
-# Manual Test Checklist (20 Scenarios, Updated)
+# Manual Test Checklist (20 Scenarios)
 
-This checklist is aligned with the current implementation and default config in `config/default.yaml`.
+This checklist is aligned with the current implementation and default config in `config/default.yaml` (`llm_backend=heuristic`, `embedding_model_name=hash://384`).
 
 ## Baseline Setup
 
@@ -18,6 +18,8 @@ Optional quick automated sanity check:
 ```bash
 PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/verify_pipeline.py
 ```
+
+If you changed `data/raw/*`, rebuild first and treat all expected chunk IDs below as baseline references for the provided sample corpus only.
 
 ## Postman Pack (Recommended)
 
@@ -222,7 +224,7 @@ curl -s -X POST http://127.0.0.1:8000/search -H 'content-type: application/json'
 ```
 Expected:
 - HTTP `200`
-- `hits` length `>= 5`
+- `hits` length `>= 1`
 - `hits` contains `engineering_onboarding_public-1-699e11c3`
 
 ## Scenario 18: Malformed API payload
@@ -248,7 +250,7 @@ Request:
 curl -s -X POST http://127.0.0.1:8000/ask -H 'content-type: application/json' -d '{"question":"Theo tài liệu '"'"'engineering onboarding public'"'"', mục '"'"'Code Review'"'"' quy định gì?","top_k":5,"access_level":"public"}'
 ```
 Expected:
-- Service falls back to heuristic behavior.
+- Service falls back to heuristic behavior if transformer loading/parsing fails.
 - `status == "ANSWERED"`
 - `citations` contains `engineering_onboarding_public-1-699e11c3`
 

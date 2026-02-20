@@ -1,33 +1,55 @@
 # Vietnamese Internal Docs RAG Assistant
 
-A production-minded Retrieval-Augmented Generation (RAG) assistant for Vietnamese internal company documentation.
+A local, production-minded Retrieval-Augmented Generation (RAG) QA system for Vietnamese internal documentation.
 
-## What Is Implemented
+## Current Implementation (As-Built)
 
-- Local document ingestion for `PDF`, `DOCX`, `MD`, `HTML`
-- Unicode-safe normalization and deterministic section-aware chunking
-- Hybrid retrieval (`BM25` + dense embeddings + fusion)
-- Retrieval tuning with thresholds, overlap filtering, and recency boost
-- Guardrails for confidence, citation relevance, and strict `NOT_FOUND`
-- FastAPI endpoints: `GET /health`, `POST /search`, `POST /ask`
-- Streamlit demo UI
-- Evaluation pipeline with BM25/dense/hybrid metric summaries
-- Manual QA checklist with 20 scenarios
-- One-command verification script for steps 2/4/5/7
+- Ingestion for `PDF`, `DOCX`, `MD`, `HTML`, `TXT`
+- Text normalization + deterministic section-aware chunking
+- Hybrid retrieval pipeline:
+  - BM25 retriever
+  - Dense retriever (hash embedding by default)
+  - Weighted fusion + metadata/recency boosts + threshold filters
+- RAG answering with citation packaging
+- Guardrails with strict `ANSWERED` / `NOT_FOUND` behavior
+- FastAPI service:
+  - `GET /health`
+  - `POST /search`
+  - `POST /ask`
+- Streamlit UI (`src/ui/streamlit_app.py`)
+- Evaluation and error analysis scripts
+- Manual test checklist (20 scenarios)
 
-## Project Layout
+## Default Runtime Profile
 
-- `config/default.yaml`: runtime and tuning configuration
+From `config/default.yaml`:
+
+- `models.llm_backend: "heuristic"`
+- `models.llm_model_name: "Qwen/Qwen2.5-3B-Instruct"` (used only if backend is `transformers`)
+- `models.embedding_model_name: "hash://384"`
+- `retrieval.fusion_method: "weighted"`
+- `retrieval.lexical_weight: 0.62`
+- `retrieval.dense_weight: 0.38`
+
+Important:
+
+- `llm_model_name` is only used when backend is `transformers`.
+- With default heuristic mode, the system runs fully offline when you set `DISABLE_EXTERNAL_MODELS=1`.
+
+## Repository Layout
+
+- `config/default.yaml`: runtime config
 - `data/raw/`: source documents
-- `data/processed/chunks.jsonl`: chunked corpus (generated)
-- `data/indices/`: BM25 + dense indices (generated)
-- `data/eval/qa_eval.jsonl`: evaluation dataset
-- `src/`: application code (ingestion, retrieval, RAG, guardrails, API, UI, eval)
-- `scripts/`: operational scripts (`ingest_and_index`, `run_api`, `run_eval`, `verify_pipeline`, `generate_eval_dataset`, `split_eval_dataset`, `holdout_error_report`)
-- `tests/`: unit/integration coverage
-- `MANUAL_TEST_CHECKLIST.md`: exact manual test requests and expected outputs
-- `IMPLEMENTATION_GUIDE.md`: phase-oriented implementation and verification guide
-- `SYSTEM_DIAGRAMS_AND_LEARNING_CURVE.md`: visual architecture diagrams + student learning path
+- `data/processed/chunks.jsonl`: generated chunk corpus
+- `data/indices/`: generated BM25 + dense indices
+- `data/eval/`: eval datasets (`qa_eval*.jsonl`)
+- `src/`: ingestion, indexing, retrieval, rag, guardrails, api, ui, eval
+- `scripts/`: run/ops utilities
+- `tests/`: unit + integration tests
+- `IMPLEMENTATION_GUIDE.md`: implementation phases and verification
+- `MANUAL_TEST_CHECKLIST.md`: 20 manual scenarios with expected outcomes
+- `SYSTEM_DIAGRAMS_AND_LEARNING_CURVE.md`: diagrams + learning roadmap
+- `TUNING_NOTES.md`: retrieval/guardrail tuning decisions and results
 
 ## Setup
 
@@ -37,67 +59,88 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Quick Run
+## Quick Start
 
-1. Build chunks and indices.
+1. Build chunks and indices:
 
 ```bash
 PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/ingest_and_index.py --config config/default.yaml
 ```
 
-2. Start API.
+2. Start API:
 
 ```bash
 PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/run_api.py --config config/default.yaml
 ```
 
-3. Start UI (new terminal).
+3. Open UI (new terminal):
 
 ```bash
 PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 streamlit run src/ui/streamlit_app.py
 ```
 
-## One-Command Verification
+## API Smoke Examples
 
-Run automated verification for:
-- Step 2: rebuild chunks/indices
-- Step 4: tests
-- Step 5: eval
-- Step 7: API smoke checks
+Health:
+
+```bash
+curl -s http://127.0.0.1:8000/health
+```
+
+Search:
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/search \
+  -H 'content-type: application/json' \
+  -d '{"query":"nghi phep","top_k":5,"access_level":"internal","debug":true}'
+```
+
+Ask:
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/ask \
+  -H 'content-type: application/json' \
+  -d '{"question":"Nhan vien duoc nghi phep bao nhieu ngay?","top_k":5,"access_level":"internal","debug":true}'
+```
+
+## Verification
+
+Run automated verification for Steps 2/4/5/7:
 
 ```bash
 PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/verify_pipeline.py
 ```
 
-Expected output format:
-- per-step `[PASS]` / `[FAIL]`
+Expected output style:
+
+- `[PASS]`/`[FAIL]` per step
 - final `OVERALL: PASS` or `OVERALL: FAIL`
+
+Run tests directly:
+
+```bash
+PYTHONPATH=. python3 -m unittest discover -s tests -p 'test_*.py'
+```
 
 ## Evaluation
 
-Run retrieval eval summary:
+Full eval:
 
 ```bash
 PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/run_eval.py --config config/default.yaml --top_k 5
 ```
 
-Output includes metrics for:
-- `bm25`
-- `dense`
-- `hybrid`
-
-Generate curated eval dataset (120 items):
+Holdout error report:
 
 ```bash
-PYTHONPATH=. python3 scripts/generate_eval_dataset.py --chunks data/processed/chunks.jsonl --output data/eval/qa_eval.jsonl --target 120
+PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/holdout_error_report.py \
+  --config config/default.yaml \
+  --dataset data/eval/qa_eval_holdout.jsonl \
+  --top_k 5 \
+  --sample_limit 5
 ```
 
-Current curated distribution:
-- `positive_single`: 78
-- `positive_multi`: 12
-- `negative`: 30
-
-Create deterministic train/holdout split:
+Split dataset:
 
 ```bash
 PYTHONPATH=. python3 scripts/split_eval_dataset.py \
@@ -108,68 +151,26 @@ PYTHONPATH=. python3 scripts/split_eval_dataset.py \
   --seed 42
 ```
 
-Evaluate train split:
+## Optional Transformer Backend
 
-```bash
-PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/run_eval.py --config config/default.yaml --dataset data/eval/qa_eval_train.jsonl --top_k 5
-```
+Supported but non-default.
 
-Evaluate holdout split:
+- Set `models.llm_backend: "transformers"`
+- Set a valid local or HF model in `models.llm_model_name`
+- Remove `DISABLE_EXTERNAL_MODELS=1` if your embedding model must be pulled from HF
 
-```bash
-PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/run_eval.py --config config/default.yaml --dataset data/eval/qa_eval_holdout.jsonl --top_k 5
-```
+If transformer loading or JSON parsing fails, the local LLM wrapper falls back to heuristic generation.
 
-Generate holdout error analysis report:
+## Known Behavior Notes
 
-```bash
-PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/holdout_error_report.py \
-  --config config/default.yaml \
-  --dataset data/eval/qa_eval_holdout.jsonl \
-  --top_k 5 \
-  --sample_limit 5
-```
+- Dense retrieval quality depends on embedding backend:
+  - `hash://384` is stable/offline-first, but weaker semantically than sentence-transformers.
+- Guardrails can return `NOT_FOUND` for vague/unsupported/low-evidence queries even if lexical matches exist.
+- `POST /ask` status values are strictly `ANSWERED` or `NOT_FOUND`.
 
-## Manual QA
+## Primary Project Docs
 
-Use:
-
+- `IMPLEMENTATION_GUIDE.md`
 - `MANUAL_TEST_CHECKLIST.md`
-
-It contains all 20 scenarios with exact request payloads and expected outputs.
-
-## Config and Tuning
-
-Main tuning knobs are in `config/default.yaml`.
-
-Retrieval knobs:
-- `lexical_weight`
-- `dense_weight`
-- `min_score_threshold`
-- `min_relative_score`
-- `min_query_token_overlap`
-- `candidate_size`
-- `recency_weight`
-
-Guardrail knobs:
-- `min_citation_coverage`
-- `min_citation_relevance`
-- `min_top_relevance`
-- `max_citations`
-
-## Notes
-
-- Default embedding backend is `hash://384` for offline-safe execution.
-- To force offline mode, keep `DISABLE_EXTERNAL_MODELS=1`.
-- If you switch to external models, remove that env var and set an embedding model name in config.
-- Output statuses are `ANSWERED` and `NOT_FOUND`.
-
-## Troubleshooting
-
-- If verification fails at Step 7 with missing FastAPI client support, install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-- If chunk IDs change after editing raw docs, re-run ingest/index and update eval gold IDs/checklist references accordingly.
+- `SYSTEM_DIAGRAMS_AND_LEARNING_CURVE.md`
+- `TUNING_NOTES.md`

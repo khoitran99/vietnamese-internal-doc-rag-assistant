@@ -1,43 +1,77 @@
-# Tuning Notes
+# Tuning Notes (Current)
 
-## Goal
-Improve retrieval relevance and guardrail strictness for Vietnamese internal-doc QA, while keeping citation grounding and `NOT_FOUND` behavior stable.
+## Active Baseline
 
-## Key Decisions
-- Indexed metadata with content (`title + section_path + text`) for both BM25 and dense retrieval.
-- Added query-aware metadata boosting (doc/section phrase matching, section token overlap count).
-- Normalized tokens with Vietnamese accent handling and targeted aliases for mixed-language queries (`branch -> nhanh`, `team -> nhom`, `thuat -> engineering`).
-- Switched overlap filtering to use `max(text_overlap, metadata_overlap)` to avoid dropping correct section hits.
-- Tightened citation filtering by reranking candidate citations against:
-  - retrieval score,
-  - question-text overlap,
-  - doc-title/section phrase match,
-  - duplicate-signature suppression.
-- Added guardrail gates for safer `NOT_FOUND`:
-  - yes/no question stricter relevance,
-  - number support check,
-  - acronym support check (exact uppercase token match, e.g. `AI`, `SLA`),
-  - open-query token coverage,
-  - top-document consistency,
-  - top-two score-ratio tie handling.
+Current baseline is intentionally conservative and stable:
 
-## Config/Threshold Direction
-- Retrieval tuned toward stronger metadata usage and recall.
-- Guardrails tuned to reject unsupported but lexically-similar evidence while preserving paraphrased positives.
-- Debug payload now exposes the main guardrail signals used in decisions.
+- `llm_backend: heuristic`
+- `embedding_model_name: hash://384`
+- `fusion_method: weighted`
+- `lexical_weight: 0.62`
+- `dense_weight: 0.38`
 
-## Evaluation Workflow
-- Added split datasets (`train`/`holdout`) and an extra unseen challenge set.
-- Added error report generator for failure buckets:
-  - retrieval miss,
-  - citation mismatch,
-  - false refusal,
-  - negative hallucination.
+## Retrieval Decisions
 
-## Current Snapshot (local eval)
-- `qa_eval_train.jsonl`: retrieval recall@5 = `1.0`, false refusal = `0.0`, negative hallucination = `0.0`
-- `qa_eval_holdout.jsonl`: retrieval recall@5 = `1.0`, false refusal = `0.0`, negative hallucination = `0.0`
-- `qa_eval_unseen_challenge.jsonl`: retrieval recall@5 = `1.0`, false refusal = `0.0`, negative hallucination = `0.0`
+Implemented tuning decisions:
 
-## Notes
-- Current results are very strong on local datasets; maintain a separate external/unseen benchmark to monitor overfitting risk.
+- Index text uses `title + section_path + text` for BM25 and dense index build.
+- Query-aware lexical/dense reweighting in hybrid retrieval.
+- Metadata boost from title/section overlap.
+- Recency boost from `updated_at`.
+- Threshold filtering on:
+  - absolute score
+  - relative score
+  - query-token overlap
+
+## Guardrail Decisions
+
+Implemented guardrails include:
+
+- Citation relevance filtering and deduplication.
+- Confidence levels (`High`/`Medium`/`Low`) from evidence strength + citation coverage.
+- Strict `NOT_FOUND` on insufficient support.
+- Extra checks:
+  - yes/no relevance
+  - number support
+  - acronym support
+  - token coverage
+  - top-document consistency
+
+## Latest Verified Baseline Metrics (default config)
+
+Command:
+
+```bash
+PYTHONPATH=. DISABLE_EXTERNAL_MODELS=1 python3 scripts/run_eval.py --config config/default.yaml --top_k 5
+```
+
+Observed output (current sample corpus):
+
+- Retrieval
+  - BM25: recall@5 `1.0`, MRR `0.9778`
+  - Dense (hash backend): recall@5 `0.1222`, MRR `0.0526`
+  - Hybrid: recall@5 `1.0`, MRR `0.9944`
+- Answer guardrail
+  - no-answer precision `1.0`
+  - no-answer recall `1.0`
+  - no-answer F1 `1.0`
+
+## Transformer Experiment Summary
+
+`transformers` backend was tested with local Qwen and compared against heuristic.
+
+Result:
+
+- No measurable quality gain on the project metrics in current evaluation scripts.
+- Runtime was significantly slower and less stable on local CPU profile.
+
+Decision:
+
+- Keep heuristic as default and primary demo/eval path.
+- Keep transformer path as optional experimentation mode only.
+
+## Practical Next Tuning Targets
+
+1. Improve dense semantic retrieval while keeping offline reproducibility.
+2. Reduce residual false-positive risk on hard negative queries.
+3. Add explicit fallback-rate instrumentation (`transformers` parse fallback vs native generation) if LLM comparison is revisited.

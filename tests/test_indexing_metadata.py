@@ -27,6 +27,16 @@ class TestIndexingMetadata(unittest.TestCase):
                 updated_at="1970-01-01",
                 access_level="internal",
             ),
+            DocumentChunk(
+                doc_id="security_policy",
+                chunk_id="c3",
+                text="Thong tin mat khau phai duoc thay dinh ky.",
+                title="security password policy",
+                section_path="Security > Password Rotation",
+                department="Security",
+                updated_at="1970-01-01",
+                access_level="internal",
+            ),
         ]
 
         index = BM25Index(chunks)
