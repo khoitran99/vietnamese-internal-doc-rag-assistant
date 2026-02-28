@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import List
 
 from src.common.schemas import AnswerPackage, RetrievalHit
@@ -34,11 +35,15 @@ class RAGAnswerer:
         generation = self.llm.generate(question=question, prompt=prompt, hits=evidence_hits)
         has_reference = has_explicit_reference(question)
         top_text_relevance = query_chunk_overlap_score(question, evidence_hits[0].chunk_ref.text) if evidence_hits else 0.0
-        top_meta_relevance = (
-            query_chunk_overlap_score(question, f"{evidence_hits[0].chunk_ref.title} {evidence_hits[0].chunk_ref.section_path}")
-            if evidence_hits
-            else 0.0
-        )
+        if evidence_hits:
+            top_chunk = evidence_hits[0].chunk_ref
+            top_meta_relevance = max(
+                query_chunk_overlap_score(question, top_chunk.title),
+                query_chunk_overlap_score(question, top_chunk.section_path),
+                query_chunk_overlap_score(question, f"{top_chunk.title} {top_chunk.section_path}"),
+            )
+        else:
+            top_meta_relevance = 0.0
         top_relevance = max(top_text_relevance, top_meta_relevance)
 
         citations, citation_coverage = filter_irrelevant_citations(
@@ -93,6 +98,7 @@ class RAGAnswerer:
         if (
             not has_reference
             and top_text_relevance <= 0.5
+            and top_meta_relevance < 0.5
             and top_doc_support_count < 2
             and top_two_score_ratio < 0.95
         ):
@@ -114,10 +120,14 @@ class RAGAnswerer:
         if self.llm.backend == "heuristic":
             bullets: List[str] = []
             for hit in selected_hits:
-                sentence = hit.chunk_ref.text.split(".")[0].strip()
-                if not sentence:
-                    sentence = hit.chunk_ref.text[:200].strip()
-                bullets.append(f"- {sentence}")
+                text = hit.chunk_ref.text.strip()
+                parts = [segment.strip() for segment in re.split(r"(?<=[.!?])\s+", text) if segment.strip()]
+                if parts:
+                    snippet = " ".join(parts[:2])
+                else:
+                    snippet = text
+                snippet = snippet[:320].rstrip()
+                bullets.append(f"- {snippet}")
             answer_text = "\n".join(bullets) if bullets else "NOT_FOUND"
             if answer_text == "NOT_FOUND":
                 not_found = True

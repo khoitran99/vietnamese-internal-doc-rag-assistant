@@ -209,3 +209,29 @@ Use this as a practical learning roadmap.
 3. Execute Postman scenarios `S01-S11`.
 4. Run eval + error report scripts.
 5. Read `TUNING_NOTES.md` to connect changes to metrics.
+
+## 9) Knowledge Area Assignment (4 Members)
+
+Use this split so each member becomes a clear owner of one major subsystem.
+Replace `Member A-D` with real names.
+
+| Member | Primary knowledge area | Main files/components | Expected outputs |
+| --- | --- | --- | --- |
+| Member A | Data ingestion and indexing | `src/ingestion/*`, `src/indexing/*`, `scripts/ingest_and_index.py`, `tests/test_chunker.py`, `tests/test_indexing_metadata.py` | Stable chunk pipeline, reproducible index build, ingestion/index bug fixes |
+| Member B | Retrieval and ranking | `src/retrieval/*`, `src/indexing/bm25_index.py`, `src/indexing/dense_index.py`, `config/default.yaml`, `tests/test_hybrid.py`, `tests/test_retrieval_tuning.py` | Better top-k quality, tuned hybrid weights/thresholds, retrieval debug analysis |
+| Member C | Answer generation and guardrails | `src/rag/*`, `src/guardrails/*`, `tests/test_guardrails.py`, `tests/test_end_to_end.py` | Better answer quality with valid citations, stronger `NOT_FOUND` behavior, reduced hallucination risk |
+| Member D | API, evaluation, and product QA | `src/api/*`, `src/ui/streamlit_app.py`, `src/eval/*`, `scripts/run_eval.py`, `scripts/holdout_error_report.py`, `tests/test_api_contract.py` | Reliable API behavior, updated eval reports, demo-ready UI/manual test evidence |
+
+### Cross-training rule (to avoid single-point ownership)
+
+- Member A secondary area: Retrieval and ranking (Member B).
+- Member B secondary area: Data ingestion and indexing (Member A).
+- Member C secondary area: API, evaluation, and QA (Member D).
+- Member D secondary area: Answer generation and guardrails (Member C).
+
+### Suggested cadence
+
+- Week 1: Each member masters their primary area and documents 1 onboarding note.
+- Week 2: Each member fixes at least 1 bug and adds/updates at least 1 test in their area.
+- Week 3: Pair on secondary area and submit 1 cross-area improvement.
+- Week 4: Run full integration test and finalize demo checklist.

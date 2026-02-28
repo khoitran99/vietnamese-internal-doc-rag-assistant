@@ -56,6 +56,21 @@ class TestGuardrails(unittest.TestCase):
         score = query_chunk_overlap_score("chinh sach nghi phep nam", "Nhan vien duoc nghi phep nam 12 ngay moi nam")
         self.assertGreater(score, 0.2)
 
+    def test_query_chunk_overlap_ignores_conversational_fillers(self) -> None:
+        chunk_text = "Engineering > Quy tắc đặt tên nhánh"
+        score_with_fillers = query_chunk_overlap_score("Cho tôi biết về cách đặt tên nhánh", chunk_text)
+        score_without_fillers = query_chunk_overlap_score("Cho tôi biết về đặt tên nhánh", chunk_text)
+        self.assertGreaterEqual(score_with_fillers, 0.5)
+        self.assertGreaterEqual(score_without_fillers, 0.5)
+        self.assertLess(abs(score_with_fillers - score_without_fillers), 0.2)
+
+    def test_query_chunk_overlap_does_not_overboost_single_token_match(self) -> None:
+        score = query_chunk_overlap_score(
+            "Quy trình cấp thẻ ra vào cho nhà cung cấp nghỉ",
+            "Nhân viên được nghỉ phép năm 12 ngày",
+        )
+        self.assertLess(score, 0.3)
+
     def test_filter_retrieval_hits(self) -> None:
         hits = [
             self._hit(0.9, chunk_id="c1", text="nghi phep nam 12 ngay"),

@@ -121,7 +121,17 @@ def query_chunk_overlap_score(query: str, chunk_text: str) -> float:
     if not c_tokens:
         return 0.0
     overlap = q_tokens.intersection(c_tokens)
-    return len(overlap) / len(q_tokens)
+    if not overlap:
+        return 0.0
+
+    # Dynamic scoring: keep query-coverage behavior, but when multiple content
+    # tokens overlap, also consider chunk-side coverage to avoid penalizing
+    # conversational filler in the query.
+    query_coverage = len(overlap) / len(q_tokens)
+    if len(overlap) < 2:
+        return query_coverage
+    chunk_coverage = len(overlap) / len(c_tokens)
+    return max(query_coverage, chunk_coverage)
 
 
 def contains_yes_no_question(text: str) -> bool:
