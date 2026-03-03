@@ -174,3 +174,4 @@ If transformer loading or JSON parsing fails, the local LLM wrapper falls back t
 - `MANUAL_TEST_CHECKLIST.md`
 - `SYSTEM_DIAGRAMS_AND_LEARNING_CURVE.md`
 - `TUNING_NOTES.md`
+- `PROJECT_TECHNICAL_REFERENCE_AND_DIAGRAMS.md`
